@@ -16,7 +16,7 @@
  * - Data packing utilities for passing multiple values via item data
  * - Auto-exit option with customizable exit callbacks
  *
- * Version: 1.0
+ * Version: 1.1
  * Author: PWNED
  */
 
@@ -142,6 +142,31 @@ new g_menu_data[MAX_PLAYERS + 1][menu_info_t];
  */
 stock neu_menu_create(player_id, const title[], timeout = -1, bool:auto_exit = true, bool:paginated = false, items_per_page = PAGINATED_ITEMS_PER_PAGE, const generic_callback[] = "", const reopen_callback[] = "", const exit_callback[] = "", const selection_marker[] = "", const selection_sound[] = "")
 {
+    // ensure we only register the menucmd once per menu id (prevents stacked callbacks)
+    static Array:registered_menu_ids = Invalid_Array;
+    if (registered_menu_ids == Invalid_Array)
+    {
+        registered_menu_ids = ArrayCreate(1);
+    }
+
+    new menuid = register_menuid(title);
+    new bool:menucmd_registered = false;
+
+    for (new i = 0, count = ArraySize(registered_menu_ids); i < count; i++)
+    {
+        if (ArrayGetCell(registered_menu_ids, i) == menuid)
+        {
+            menucmd_registered = true;
+            break;
+        }
+    }
+
+    if (!menucmd_registered)
+    {
+        register_menucmd(menuid, 1023, "neumenu_handler");
+        ArrayPushCell(registered_menu_ids, menuid);
+    }
+
     // clean up existing array if one exists (prevents memory leaks)
     if (g_menu_data[player_id][menu_items_array] != Invalid_Array)
     {
@@ -190,9 +215,6 @@ stock neu_menu_create(player_id, const title[], timeout = -1, bool:auto_exit = t
     g_menu_data[player_id][menu_paginated] = paginated;
     g_menu_data[player_id][menu_current_page] = 0;  // start on first page
     g_menu_data[player_id][menu_items_per_page] = paginated ? items_per_page : 0;  // 0 = no limit for non-paginated
-
-    // register menu handler for this menu ID
-    register_menucmd(register_menuid(title), 1023, "neumenu_handler");
 
     return player_id;
 }
